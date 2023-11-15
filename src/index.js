@@ -8,6 +8,10 @@ const server = express();
 server.use(cors());
 server.use(express.json());
 
+//Instalar y configurar el JWT y bcrypt
+const jwt = require('jsonwebtoken');
+const bcrypt = require('bcrypt');
+
 // init express aplication
 const serverPort = 4001;
 server.listen(serverPort, () => {
@@ -29,6 +33,12 @@ async function getConnection() {
 
   return connection;
 }
+
+//generar un token
+const generateToken = (payload) => {
+  const token = jwt.sign(payload, 'secreto', { expiresIn: '12h' });
+  return token;
+};
 
 // creamos  nuestros endpoints
 //get, post, put, delete
@@ -142,4 +152,84 @@ server.delete('/personajes/:idPj', async (req, res) => {
         'No hemos podido borrar a tu maga, perdón. Inténtalo de nuevo más tarde',
     });
   }
+});
+
+//registro de usuario
+server.post('/registro', async (req, res) => {
+  try {
+    const connection = await getConnection();
+    const query =
+      'INSERT INTO usuarios (email, nombreUser, password) VALUES (?,?,?)';
+    const password = req.body.password;
+    const passwordHashed = await bcrypt.hash(password, 10);
+    const [results] = await connection.query(query, [
+      req.body.email,
+      req.body.nombre,
+      passwordHashed,
+    ]);
+    idNewUser = results.insertId;
+    const infoToken = {
+      username: req.body.nombre,
+      id: idNewUser,
+    };
+    const token = generateToken(infoToken);
+
+    connection.end();
+    res.json({
+      success: true,
+      token: token,
+    });
+  } catch (error) {
+    res.json({
+      success: false,
+      error: error,
+    });
+  }
+});
+
+//login usuario
+server.post('/login', async (req, res) => {
+  const email = req.body.email;
+  const passwordUser = req.body.password;
+
+  //Ver si el usuario existe : en bd
+  const sql = 'SELECT * FROM usuarios WHERE email = ?';
+
+  const conn = await getConnection();
+
+  const [users] = await conn.query(sql, [email]);
+  const user = users[0]; // solo me quedo con el primer usuario
+  console.log(user);
+  const passwordHashed = await bcrypt.hash(passwordUser, 10);
+
+  //Comprobar si el usuario y la contraseña coincide con la que está en BD: bcrypt
+  const isOkPass = await bcrypt.compare(
+    passwordUser,
+    user.password,
+    function (error, res) {
+      if (error) {
+        console.log(error);
+      }
+      if (res) {
+        console.log(res);
+      }
+    }
+  );
+
+  //Si el usuario no existe o la contraseña es incorrecta -> credenciales no válidas
+  if (!(isOkPass && user)) {
+    return res.json({ success: false, error: 'Credenciales inválidas' });
+  }
+
+  //si el usaurio existe y la contraseña coincide: generar un token
+  const infoToken = {
+    username: user.email,
+    id: user.idUser,
+  };
+
+  const token = generateToken(infoToken);
+
+  res.json({ success: true, token, email: user.email });
+
+  //envio una respuesta correcta
 });
