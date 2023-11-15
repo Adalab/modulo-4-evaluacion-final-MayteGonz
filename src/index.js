@@ -84,8 +84,7 @@ server.post('/personajes', async (req, res) => {
       req.body.boggart,
       req.body.fkCasa,
     ]);
-    console.log(results);
-    console.log(results.insertId);
+
     connection.end();
     res.json({
       success: true,
@@ -105,7 +104,6 @@ server.put('/personajes/:idPj', async (req, res) => {
   try {
     const connection = await getConnection();
     const personajeID = req.params.idPj;
-    console.log(req.params);
     const query =
       'UPDATE personajes SET nombrePj = ?, apellido = ?, cumpleaños = ?, ocupacion = ?, boggart = ?, fkCasa = ?  WHERE idPersonaje= ?;';
     const [results] = await connection.query(query, [
@@ -140,7 +138,6 @@ server.delete('/personajes/:idPj', async (req, res) => {
     const query = 'DELETE FROM personajes WHERE idPersonaje = ?';
     const [results] = await connection.query(query, [personajeID]);
     connection.end();
-    console.log(results);
     res.json({
       success: true,
       menssage: 'Se ha podido borrar correctamente a la bruja elejida.',
@@ -199,22 +196,10 @@ server.post('/login', async (req, res) => {
 
   const [users] = await conn.query(sql, [email]);
   const user = users[0]; // solo me quedo con el primer usuario
-  console.log(user);
-  const passwordHashed = await bcrypt.hash(passwordUser, 10);
 
   //Comprobar si el usuario y la contraseña coincide con la que está en BD: bcrypt
-  const isOkPass = await bcrypt.compare(
-    passwordUser,
-    user.password,
-    function (error, res) {
-      if (error) {
-        console.log(error);
-      }
-      if (res) {
-        console.log(res);
-      }
-    }
-  );
+  const isOkPass =
+    user === null ? false : await bcrypt.compare(passwordUser, user.password);
 
   //Si el usuario no existe o la contraseña es incorrecta -> credenciales no válidas
   if (!(isOkPass && user)) {
